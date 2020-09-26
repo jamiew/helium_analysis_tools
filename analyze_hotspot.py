@@ -27,9 +27,12 @@ def pocv10_violations(hotspot, chals):
     haddr = hotspot['address']
     hlat, hlng = hotspot['lat'], hotspot['lng']
     transmits_w = dict(total=0, bad_rssi=0, bad_snr=0)
+    transmits_too_close_w = dict(total=0, bad_rssi=0, bad_snr=0)
     receives_w = dict(total=0, bad_rssi=0, bad_snr=0)
+    receives_too_close_w = dict(total=0, bad_rssi=0, bad_snr=0)
     poc_rcv = dict(total=0, bad_rssi=0, bad_snr=0)
     bad_neighbors = dict()
+    too_close_neighbors = dict()
 
 
     for chal in chals:
@@ -40,20 +43,42 @@ def pocv10_violations(hotspot, chals):
                     dist = utils.haversine_km(
                         hlat, hlng,
                         H.get_hotspot_by_addr(w['gateway'])['lat'], H.get_hotspot_by_addr(w['gateway'])['lng'])
-                    if dist < .3:
-                        continue
+
+                    too_close = True if dist < .3 else False
+                    name = H.get_hotspot_by_addr(w['gateway'])['name']
+                    # if too_close: print(f"receives: {name} is too_close")
+
                     rssi_lim = utils.max_rssi(dist)
                     snr_rssi_lim = utils.snr_min_rssi(w['snr'])
-                    transmits_w['total'] += 1
-                    if w['gateway'] not in bad_neighbors:
-                        bad_neighbors[w['gateway']] = dict(rssi=0, snr=0, ttl=0)
-                    bad_neighbors[w['gateway']]['ttl'] += 1
+
+                    if not too_close:
+                        transmits_w['total'] += 1
+                        if w['gateway'] not in bad_neighbors:
+                            bad_neighbors[w['gateway']] = dict(rssi=0, snr=0, ttl=0)
+                        bad_neighbors[w['gateway']]['ttl'] += 1
+                    else:
+                        transmits_too_close_w['total'] += 1
+                        if w['gateway'] not in too_close_neighbors:
+                            too_close_neighbors[w['gateway']] = dict(rssi=0, snr=0, ttl=0)
+                        too_close_neighbors[w['gateway']]['ttl'] += 1
+
                     if w['signal'] > rssi_lim:
-                        transmits_w['bad_rssi'] += 1
-                        bad_neighbors[w['gateway']]['rssi'] += 1
+                        if not too_close:
+                            transmits_w['bad_rssi'] += 1
+                            bad_neighbors[w['gateway']]['rssi'] += 1
+                        else:
+                            print(f"transmits: {name} is too_close and bad RSSI")
+                            transmits_too_close_w['bad_rssi'] += 1
+                            too_close_neighbors[w['gateway']]['snr'] += 1
                     if w['signal'] < snr_rssi_lim:
-                        transmits_w['bad_snr'] += 1
-                        bad_neighbors[w['gateway']]['snr'] += 1
+                        if not too_close:
+                            transmits_w['bad_snr'] += 1
+                            bad_neighbors[w['gateway']]['snr'] += 1
+                        else:
+                            print(f"transmits: {name} is too_close and bad SNR")
+                            transmits_too_close_w['bad_snr'] += 1
+                            too_close_neighbors[w['gateway']]['snr'] += 1
+
                 if p['receipt'] and transmitter:
                     dist = utils.haversine_km(
                         hlat, hlng,
@@ -71,31 +96,56 @@ def pocv10_violations(hotspot, chals):
                     if p['receipt']['signal'] < snr_rssi_lim:
                         poc_rcv['bad_snr'] += 1
                         bad_neighbors[transmitter]['snr'] += 1
-                        print(f"failed snr with lim {snr_rssi_lim}")
+                        print(f"failed snr with lim {snr_rssi_lim} too_close={too_close}")
                         print(p['receipt'])
             else:
                 for w in p['witnesses']:
+                    too_close = False
                     if w['gateway'] != haddr:
                         continue
                     dist = utils.haversine_km(
                         hlat, hlng,
                         H.get_hotspot_by_addr(p['challengee'])['lat'], H.get_hotspot_by_addr(p['challengee'])['lng']
                     )
-                    if dist < .3:
-                        continue
+
+                    too_close = True if dist < .3 else False
+                    name = H.get_hotspot_by_addr(w['gateway'])['name']
+                    # if too_close: print(f"receives: {name} is too_close")
+
                     rssi_lim = utils.max_rssi(dist)
                     snr_rssi_lim = utils.snr_min_rssi(w['snr'])
-                    receives_w['total'] += 1
-                    if p['challengee'] not in bad_neighbors:
-                        bad_neighbors[p['challengee']] = dict(rssi=0, snr=0, ttl=0)
-                    bad_neighbors[p['challengee']]['ttl'] += 1
+
+                    if not too_close:
+                        receives_w['total'] += 1
+                        if p['challengee'] not in bad_neighbors:
+                            bad_neighbors[p['challengee']] = dict(rssi=0, snr=0, ttl=0)
+                        bad_neighbors[p['challengee']]['ttl'] += 1
+                    else:
+                        receives_too_close_w['total'] += 1
+                        if p['challengee'] not in too_close_neighbors:
+                            too_close_neighbors[p['challengee']] = dict(rssi=0, snr=0, ttl=0)
+                        too_close_neighbors[p['challengee']]['ttl'] += 1
+
+
                     if w['signal'] > rssi_lim:
-                        receives_w['bad_rssi'] += 1
-                        bad_neighbors[p['challengee']]['rssi'] += 1
+                        if not too_close:
+                            receives_w['bad_rssi'] += 1
+                            bad_neighbors[p['challengee']]['rssi'] += 1
+                        else:
+                            print(f"receives: {name} is too_close and bad SNR")
+                            receives_too_close_w['bad_rssi'] += 1
+                            too_close_neighbors[p['challengee']]['rssi'] += 1
                     if w['signal'] < snr_rssi_lim:
-                        receives_w['bad_snr'] += 1
-                        bad_neighbors[p['challengee']]['snr'] += 1
+                        if not too_close:
+                            receives_w['bad_snr'] += 1
+                            bad_neighbors[p['challengee']]['snr'] += 1
+                        else:
+                            print(f"receives: {name} is too_close and bad RSSI")
+                            receives_too_close_w['bad_rssi'] += 1
+                            too_close_neighbors[p['challengee']]['snr'] += 1
+
             transmitter = p['challengee']
+
     print(f"analyzed {len(chals)} challenges from {chals[0]['height']}-{chals[-1]['height']}")
     print(f"PoC v10 failures for {hotspot['name']}")
 
@@ -103,12 +153,32 @@ def pocv10_violations(hotspot, chals):
     print(f"Category                   | Total | bad RSSI (%) | bad SNR (%) |")
     print(f"-----------------------------------------------------------------")
     print(f"Witnesses to hotspot >300m | {transmits_w['total']:5d} | {transmits_w['bad_rssi']:4d} ({transmits_w['bad_rssi']*100/max(1, transmits_w['total']):3.0f}%)  | {transmits_w['bad_snr']:4d} ({transmits_w['bad_snr']*100/max(1, transmits_w['total']):3.0f}%) |")
+    print(f"Witnesses to hotspot <300m | {transmits_too_close_w['total']:5d} | {transmits_too_close_w['bad_rssi']:4d} ({transmits_too_close_w['bad_rssi']*100/max(1, transmits_too_close_w['total']):3.0f}%)  | {transmits_too_close_w['bad_snr']:4d} ({transmits_too_close_w['bad_snr']*100/max(1, transmits_too_close_w['total']):3.0f}%) |")
     print(f"Hotspot witnessing  >300m  | {receives_w['total']:5d} | {receives_w['bad_rssi']:4d} ({receives_w['bad_rssi']*100/max(1, receives_w['total']):3.0f}%)  | {receives_w['bad_snr']:4d} ({receives_w['bad_snr']*100/max(1, receives_w['total']):3.0f}%) |")
+    print(f"Hotspot witnessing  <300m  | {receives_too_close_w['total']:5d} | {receives_too_close_w['bad_rssi']:4d} ({receives_too_close_w['bad_rssi']*100/max(1, receives_too_close_w['total']):3.0f}%)  | {receives_too_close_w['bad_snr']:4d} ({receives_too_close_w['bad_snr']*100/max(1, receives_too_close_w['total']):3.0f}%) |")
     print(f"Hotspot PoC receipts       | {poc_rcv['total']:5d} | {poc_rcv['bad_rssi']:4d} ({poc_rcv['bad_rssi']*100/max(1, poc_rcv['total']):3.0f}%)  | {poc_rcv['bad_snr']:4d} ({poc_rcv['bad_snr']*100/max(1, poc_rcv['total']):3.0f}%) |")
 
     print()
     print()
-    print(f'BY "BAD" NEIGHBOR')
+    print(f'"TOO CLOSE" NEIGHBORS')
+    print(f"Neighboring Hotspot           | dist km | heading | bad RSSI (%)  | bad SNR (%)   |")
+    print(f"------------------------------+---------+---------+---------------+---------------|")
+    hlat, hlng = hotspot['lat'], hotspot['lng']
+    for n in too_close_neighbors:
+        if too_close_neighbors[n]['rssi'] or too_close_neighbors[n]['snr']:
+            bad_h = H.get_hotspot_by_addr(n)
+            dist_km, heading = utils.haversine_km(
+                hlat,
+                hlng,
+                bad_h['lat'],
+                bad_h['lng'],
+                return_heading=True
+            )
+            print(f"{H.get_hotspot_by_addr(n)['name']:29} | {dist_km:5.1f}   | {__heading2str__(heading):7} | {too_close_neighbors[n]['rssi']:2d}/{too_close_neighbors[n]['ttl']:3d} ({too_close_neighbors[n]['rssi']*100/too_close_neighbors[n]['ttl']:3.0f}%) | {too_close_neighbors[n]['snr']:2d}/{too_close_neighbors[n]['ttl']:3d} ({too_close_neighbors[n]['snr']*100/too_close_neighbors[n]['ttl']:3.0f}%) |")
+
+    print()
+    print()
+    print(f'"BAD" NEIGHBORS')
     print(f"Neighboring Hotspot           | dist km | heading | bad RSSI (%)  | bad SNR (%)   |")
     print(f"------------------------------+---------+---------+---------------+---------------|")
     hlat, hlng = hotspot['lat'], hotspot['lng']
@@ -122,7 +192,6 @@ def pocv10_violations(hotspot, chals):
                 bad_h['lng'],
                 return_heading=True
             )
-
             print(f"{H.get_hotspot_by_addr(n)['name']:29} | {dist_km:5.1f}   | {__heading2str__(heading):7} | {bad_neighbors[n]['rssi']:2d}/{bad_neighbors[n]['ttl']:3d} ({bad_neighbors[n]['rssi']*100/bad_neighbors[n]['ttl']:3.0f}%) | {bad_neighbors[n]['snr']:2d}/{bad_neighbors[n]['ttl']:3d} ({bad_neighbors[n]['snr']*100/bad_neighbors[n]['ttl']:3.0f}%) |")
 
 def poc_reliability(hotspot, challenges):
