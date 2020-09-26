@@ -67,7 +67,6 @@ def pocv10_violations(hotspot, chals):
                             transmits_w['bad_rssi'] += 1
                             bad_neighbors[w['gateway']]['rssi'] += 1
                         else:
-                            print(f"transmits: {name} is too_close and bad RSSI")
                             transmits_too_close_w['bad_rssi'] += 1
                             too_close_neighbors[w['gateway']]['snr'] += 1
                     if w['signal'] < snr_rssi_lim:
@@ -75,7 +74,6 @@ def pocv10_violations(hotspot, chals):
                             transmits_w['bad_snr'] += 1
                             bad_neighbors[w['gateway']]['snr'] += 1
                         else:
-                            print(f"transmits: {name} is too_close and bad SNR")
                             transmits_too_close_w['bad_snr'] += 1
                             too_close_neighbors[w['gateway']]['snr'] += 1
 
@@ -132,7 +130,6 @@ def pocv10_violations(hotspot, chals):
                             receives_w['bad_rssi'] += 1
                             bad_neighbors[p['challengee']]['rssi'] += 1
                         else:
-                            print(f"receives: {name} is too_close and bad SNR")
                             receives_too_close_w['bad_rssi'] += 1
                             too_close_neighbors[p['challengee']]['rssi'] += 1
                     if w['signal'] < snr_rssi_lim:
@@ -140,7 +137,6 @@ def pocv10_violations(hotspot, chals):
                             receives_w['bad_snr'] += 1
                             bad_neighbors[p['challengee']]['snr'] += 1
                         else:
-                            print(f"receives: {name} is too_close and bad RSSI")
                             receives_too_close_w['bad_rssi'] += 1
                             too_close_neighbors[p['challengee']]['snr'] += 1
 
